@@ -1,0 +1,100 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 9%;
+    --primary: 0 72% 51%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
+    --accent: 0 0% 96%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 0 72% 51%;
+    --radius: 0.75rem;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 0 0% 25%;
+    --sidebar-primary: 0 72% 51%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 95%;
+    --sidebar-accent-foreground: 0 0% 9%;
+    --sidebar-border: 0 0% 91%;
+    --sidebar-ring: 0 72% 51%;
+
+    --surface: 0 0% 97%;
+    --surface-foreground: 0 0% 20%;
+    --racing-red: 0 72% 51%;
+    --racing-glow: 0 100% 65%;
+  }
+
+  .dark {
+    --background: 0 8% 4%;
+    --foreground: 0 5% 93%;
+    --card: 0 6% 8%;
+    --card-foreground: 0 5% 93%;
+    --popover: 0 6% 8%;
+    --popover-foreground: 0 5% 93%;
+    --primary: 0 72% 51%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 4% 13%;
+    --secondary-foreground: 0 5% 93%;
+    --muted: 0 4% 13%;
+    --muted-foreground: 0 3% 50%;
+    --accent: 0 5% 12%;
+    --accent-foreground: 0 5% 93%;
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 0 5% 95%;
+    --border: 0 4% 14%;
+    --input: 0 4% 14%;
+    --ring: 0 72% 51%;
+    --sidebar-background: 0 7% 5%;
+    --sidebar-foreground: 0 3% 60%;
+    --sidebar-primary: 0 72% 51%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 5% 11%;
+    --sidebar-accent-foreground: 0 5% 93%;
+    --sidebar-border: 0 4% 12%;
+    --sidebar-ring: 0 72% 51%;
+
+    --surface: 0 5% 9%;
+    --surface-foreground: 0 3% 65%;
+    --racing-red: 0 72% 51%;
+    --racing-glow: 0 100% 65%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Space Grotesk', sans-serif;
+  }
+}
+
+@layer utilities {
+  .racing-gradient {
+    background: linear-gradient(135deg, hsl(var(--racing-red)), hsl(var(--racing-glow)));
+  }
+  .glow-red {
+    box-shadow: 0 0 20px -5px hsl(var(--racing-red) / 0.4);
+  }
+  .bg-racing-vignette {
+    background: radial-gradient(ellipse at center, hsl(0 8% 6%) 0%, hsl(0 8% 4%) 60%, hsl(0 12% 3%) 100%);
+  }
+}

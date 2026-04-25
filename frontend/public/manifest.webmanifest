@@ -1,0 +1,17 @@
+{
+  "name": "F1 Search Dashboard",
+  "short_name": "F1Hub",
+  "description": "A premium Formula 1 race tracking and search dashboard.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A0606",
+  "theme_color": "#E10600",
+  "icons": [
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
