@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, X, User, Users, MapPin, Trophy, SearchX, PlayCircle } from "lucide-react";
+import { Search, X, User, Users, MapPin, Trophy, SearchX } from "lucide-react";
 import { containsThai, getThaiSuggestions } from "@/data/thai-mappings";
 import SiteHeader from "@/components/SiteHeader";
 import { NewsCarousel } from "@/components/NewsCarousel";
+import { AskF1Assistant } from "@/components/AskF1Assistant";
 import { webSearch, type WebResult } from "@/data/search-data";
 import {
   parseYearFromQuery,
@@ -43,7 +44,7 @@ const SearchResults = () => {
   const [searchData, setSearchData] = useState<{ results: WebResult[]; totalResults: number }>({ results: [], totalResults: 0 });
   const [liveData, setLiveData] = useState<LiveSearchResults | null>(null);
 
-  const filters = ["All", "Drivers", "Teams", "Circuits", "Results", "Real-time"];
+  const filters = ["All", "Drivers", "Teams", "Circuits", "Results"];
 
   useEffect(() => {
     setIsLoading(true);
@@ -58,39 +59,39 @@ const SearchResults = () => {
       getLatestRaceResult(year),
       getDriverHeadshots(),
     ]).then(async ([drivers, constructors, circuits, standings, lastRace, dsHeadshots]) => {
-      
+
       let finalConstructors = [...constructors];
       let finalDriverRaces: ApiRace[] = [];
       let finalDrivers = [...drivers];
-      
+
       // Smart populate: Find the team and races of the matched driver
       if (drivers.length > 0) {
-         const d = drivers[0];
-         const st = standings.find(s => s.Driver.driverId === d.driverId);
-         if (st && st.Constructors && st.Constructors.length > 0) {
-           const team = st.Constructors[0];
-           if (!finalConstructors.some(c => c.constructorId === team.constructorId)) {
-             finalConstructors.push(team);
-           }
-         }
-         finalDriverRaces = await getDriverResults(d.driverId, year);
-      }
-      
-      // Smart populate: Find the drivers of the matched team
-      if (constructors.length > 0) {
-         const t = constructors[0];
-         const teamStandings = standings.filter(s => s.Constructors.some(c => c.constructorId === t.constructorId));
-         for (const ts of teamStandings) {
-            if (!finalDrivers.some(d => d.driverId === ts.Driver.driverId)) {
-               finalDrivers.push(ts.Driver);
-            }
-         }
+        const d = drivers[0];
+        const st = standings.find(s => s.Driver.driverId === d.driverId);
+        if (st && st.Constructors && st.Constructors.length > 0) {
+          const team = st.Constructors[0];
+          if (!finalConstructors.some(c => c.constructorId === team.constructorId)) {
+            finalConstructors.push(team);
+          }
+        }
+        finalDriverRaces = await getDriverResults(d.driverId, year);
       }
 
-      setLiveData({ 
-        drivers: finalDrivers, constructors: finalConstructors, circuits, 
-        standings, lastRace, driverRaces: finalDriverRaces, 
-        headshots: dsHeadshots, year, parsedQuery 
+      // Smart populate: Find the drivers of the matched team
+      if (constructors.length > 0) {
+        const t = constructors[0];
+        const teamStandings = standings.filter(s => s.Constructors.some(c => c.constructorId === t.constructorId));
+        for (const ts of teamStandings) {
+          if (!finalDrivers.some(d => d.driverId === ts.Driver.driverId)) {
+            finalDrivers.push(ts.Driver);
+          }
+        }
+      }
+
+      setLiveData({
+        drivers: finalDrivers, constructors: finalConstructors, circuits,
+        standings, lastRace, driverRaces: finalDriverRaces,
+        headshots: dsHeadshots, year, parsedQuery
       });
       setSearchData(webSearch(initialQuery));
       setIsLoading(false);
@@ -104,7 +105,6 @@ const SearchResults = () => {
   const filteredResults = searchData.results.filter((r) => {
     if (activeFilter === "All") return r.type === "article" || r.type === "news";
     if (activeFilter === "Results") return r.type === "race";
-    if (activeFilter === "Real-time") return r.type === "article" || r.type === "news";
     return false;
   });
 
@@ -113,9 +113,9 @@ const SearchResults = () => {
   const showCircuits = activeFilter === "All" || activeFilter === "Circuits";
   const showResults = activeFilter === "All" || activeFilter === "Results";
   const showStandings = activeFilter === "All";
-  const showMedia = activeFilter === "All" || activeFilter === "Real-time";
+  const showMedia = activeFilter === "All";
 
-  const hasAnyResults = 
+  const hasAnyResults =
     (showDrivers && !!liveData?.drivers?.length) ||
     (showTeams && !!liveData?.constructors?.length) ||
     (showCircuits && !!liveData?.circuits?.length) ||
@@ -146,11 +146,10 @@ const SearchResults = () => {
             <button
               key={f}
               onClick={() => setActiveFilter(f)}
-              className={`px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide transition-all whitespace-nowrap ${
-                activeFilter === f
+              className={`px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide transition-all whitespace-nowrap ${activeFilter === f
                   ? "racing-gradient text-primary-foreground"
                   : "bg-secondary text-muted-foreground hover:text-foreground"
-              }`}
+                }`}
             >
               {f}
             </button>
@@ -188,6 +187,13 @@ const SearchResults = () => {
               exit={{ opacity: 0 }}
               className="space-y-4"
             >
+
+              <AskF1Assistant
+                query={initialQuery}
+                liveData={liveData}
+                webResults={searchData.results}
+              />
+
               {/* Live API: Drivers */}
               {(activeFilter === "All" || activeFilter === "Drivers") && liveData && liveData.drivers.length > 0 && (
                 <div className="bg-card border border-border rounded-xl p-6">
@@ -204,16 +210,15 @@ const SearchResults = () => {
                         <Link to={`/driver/${d.driverId}`} key={d.driverId} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0 group hover:bg-secondary/40 px-2 -mx-2 rounded-lg transition-colors cursor-pointer">
                           <div className="flex items-center gap-3">
                             {standing && (
-                              <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
-                                standing.position === "1" ? "racing-gradient text-primary-foreground" : "bg-secondary text-muted-foreground"
-                              }`}>
+                              <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${standing.position === "1" ? "racing-gradient text-primary-foreground" : "bg-secondary text-muted-foreground"
+                                }`}>
                                 P{standing.position}
                               </span>
                             )}
                             {/* Driver Headshot */}
                             <div className="w-10 h-10 rounded-full bg-secondary overflow-hidden shrink-0 border border-border/50">
-                              <img 
-                                src={liveData.headshots[d.familyName.substring(0,3).toUpperCase()] || `https://ui-avatars.com/api/?name=${d.givenName}+${d.familyName}&background=random&color=fff`} 
+                              <img
+                                src={liveData.headshots[d.familyName.substring(0, 3).toUpperCase()] || `https://ui-avatars.com/api/?name=${d.givenName}+${d.familyName}&background=random&color=fff`}
                                 alt={d.givenName}
                                 className="w-full h-full object-cover object-top"
                                 onError={(e) => {
@@ -297,23 +302,23 @@ const SearchResults = () => {
               {(activeFilter === "All" || activeFilter === "Results") && liveData?.driverRaces && liveData.driverRaces.length > 0 && (
                 <div className="bg-card border border-border rounded-xl p-6">
                   <div className="flex items-center gap-2 mb-4">
-                     <Trophy className="text-primary" size={20} />
-                     <h3 className="font-bold text-foreground">Season Results for {liveData.drivers[0]?.givenName} {liveData.drivers[0]?.familyName}</h3>
+                    <Trophy className="text-primary" size={20} />
+                    <h3 className="font-bold text-foreground">Season Results for {liveData.drivers[0]?.givenName} {liveData.drivers[0]?.familyName}</h3>
                   </div>
                   <div className="space-y-2">
-                     {liveData.driverRaces.map((r) => (
-                        <div key={r.round} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0 hover:bg-secondary/20 transition-colors -mx-2 px-2 rounded-lg">
-                           <div className="min-w-0">
-                              <p className="text-sm font-bold text-foreground truncate">{r.raceName}</p>
-                              <p className="text-xs text-muted-foreground">Round {r.round} · {r.date}</p>
-                           </div>
-                           <div className="text-right whitespace-nowrap ml-4">
-                              <span className="bg-primary/10 text-primary px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider">
-                                 P{r.Results?.[0]?.position || "-"}
-                              </span>
-                           </div>
+                    {liveData.driverRaces.map((r) => (
+                      <div key={r.round} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0 hover:bg-secondary/20 transition-colors -mx-2 px-2 rounded-lg">
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-foreground truncate">{r.raceName}</p>
+                          <p className="text-xs text-muted-foreground">Round {r.round} · {r.date}</p>
                         </div>
-                     ))}
+                        <div className="text-right whitespace-nowrap ml-4">
+                          <span className="bg-primary/10 text-primary px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                            P{r.Results?.[0]?.position || "-"}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -372,9 +377,8 @@ const SearchResults = () => {
                     {liveData.standings.slice(0, 5).map((s, i) => (
                       <div key={s.Driver.driverId} className="flex items-center justify-between py-1.5">
                         <div className="flex items-center gap-3">
-                          <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                            i === 0 ? "racing-gradient text-primary-foreground" : "bg-secondary text-muted-foreground"
-                          }`}>
+                          <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${i === 0 ? "racing-gradient text-primary-foreground" : "bg-secondary text-muted-foreground"
+                            }`}>
                             {s.position}
                           </span>
                           <span className={`text-sm font-medium ${i === 0 ? "text-foreground" : "text-muted-foreground"}`}>
@@ -391,23 +395,8 @@ const SearchResults = () => {
                 </div>
               )}
 
-              {/* Real-time & Social Media */}
-              {(activeFilter === "All" || activeFilter === "Real-time") && searchData.results.some(r => r.type === "social" || r.type === "video") && (
-                <div className="bg-card border border-border rounded-xl p-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <PlayCircle className="text-primary" size={20} />
-                    <h3 className="font-bold text-foreground">Real-time & Media</h3>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {searchData.results.filter(r => r.type === "social" || r.type === "video").map((r, i) => (
-                      <MediaCard key={i} result={r} />
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {/* Latest F1 News component */}
-              {(activeFilter === "All" || activeFilter === "Real-time") && (
+              {activeFilter === "All" && (
                 <NewsCarousel />
               )}
 
@@ -465,20 +454,6 @@ const LinkCard = ({ result }: { result: WebResult }) => (
         ))}
       </div>
     )}
-  </a>
-);
-
-const MediaCard = ({ result }: { result: WebResult }) => (
-  <a href={result.url} target="_blank" rel="noopener noreferrer" className="block bg-secondary/30 border border-border/50 rounded-xl p-4 hover:border-primary/40 hover:bg-secondary/50 transition-colors group cursor-pointer relative overflow-hidden flex flex-col h-full">
-    <div className="flex items-center gap-2 mb-3">
-      <span className={`text-[10px] font-bold px-2.5 py-1 rounded-sm uppercase tracking-wider ${result.platform === 'youtube' ? 'bg-red-500/20 text-red-500' : 'bg-pink-500/20 text-pink-500'}`}>
-        {result.platform || result.type}
-      </span>
-      <span className="text-[10px] text-muted-foreground">{result.date}</span>
-      <span className="text-[10px] text-muted-foreground ml-auto">{result.source}</span>
-    </div>
-    <h3 className="text-sm font-bold text-foreground group-hover:text-primary transition-colors mb-2 line-clamp-2">{result.title}</h3>
-    <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed mt-auto">{result.snippet}</p>
   </a>
 );
 

@@ -60,7 +60,9 @@ const fuseSearchF1 = new Fuse(allItems, {
 });
 
 export function searchF1(query: string): SearchItem[] {
-  let q = query;
+  let q = query.trim();
+  if (!q) return [];
+
   if (containsThai(q)) {
     q = translateThaiQuery(q);
   }
