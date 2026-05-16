@@ -1,8 +1,8 @@
+import { cachedJson } from "./f1-cache";
+
 export async function getLiveTiming() {
   try {
-    const res = await fetch('https://api.openf1.org/v1/intervals?session_key=latest');
-    if (!res.ok) return null;
-    const intData = await res.json();
+    const intData = await cachedJson<any[]>('https://api.openf1.org/v1/intervals?session_key=latest', 1000 * 30);
     const timingObj: Record<string, any> = {};
     for (let i = intData.length - 1; i >= 0; i--) {
         const d = intData[i];
@@ -21,9 +21,7 @@ export async function getLiveTiming() {
 
 export async function getTrackStatus() {
   try {
-    const res = await fetch('https://api.openf1.org/v1/race_control?session_key=latest');
-    if (!res.ok) return null;
-    const rcData = await res.json();
+    const rcData = await cachedJson<any[]>('https://api.openf1.org/v1/race_control?session_key=latest', 1000 * 30);
     if (rcData.length > 0) {
         const latestFlag = rcData.reverse().find((r: any) => r.category === "Flag" || r.flag);
         return {
@@ -41,9 +39,7 @@ export async function getTrackStatus() {
 
 export async function getWeatherData() {
   try {
-    const res = await fetch('https://api.openf1.org/v1/weather?session_key=latest');
-    if (!res.ok) return null;
-    const wData = await res.json();
+    const wData = await cachedJson<any[]>('https://api.openf1.org/v1/weather?session_key=latest', 1000 * 30);
     if (wData.length > 0) {
         const latestW = wData[wData.length - 1];
         return { 
@@ -63,9 +59,7 @@ export async function getWeatherData() {
 
 export async function getF1News() {
   try {
-    const res = await fetch('https://api.rss2json.com/v1/api.json?rss_url=https://www.motorsport.com/rss/f1/news/');
-    if (!res.ok) return [];
-    const data = await res.json();
+    const data = await cachedJson<any>('https://api.rss2json.com/v1/api.json?rss_url=https://www.motorsport.com/rss/f1/news/');
     return data.items || [];
   } catch (e) {
     return [];
@@ -74,9 +68,7 @@ export async function getF1News() {
 
 export async function getDriverHeadshots() {
   try {
-    const res = await fetch('https://api.openf1.org/v1/drivers?session_key=latest');
-    if (!res.ok) return {};
-    const data = await res.json();
+    const data = await cachedJson<any[]>('https://api.openf1.org/v1/drivers?session_key=latest', 1000 * 60 * 60);
     const headshots: Record<string, string> = {};
     for (const d of data) {
       if (d.name_acronym && d.headshot_url) {

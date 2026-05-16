@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import RaceFlag from "@/components/RaceFlag";
 import SiteHeader from "@/components/SiteHeader";
 import { getDriverHeadshots } from "@/data/live-api";
+import { cachedJson } from "@/data/f1-cache";
 
 const nationalityToFlagImg: Record<string, string> = {
   British: "gb", Dutch: "nl", Monegasque: "mc", Australian: "au", Spanish: "es",
@@ -43,9 +44,7 @@ interface ApiDriverStanding {
 }
 
 async function fetchDriverStandings(year: number): Promise<ApiDriverStanding[]> {
-  const res = await fetch(`https://api.jolpi.ca/ergast/f1/${year}/driverStandings.json`);
-  if (!res.ok) throw new Error("API error");
-  const data = await res.json();
+  const data = await cachedJson<any>(`https://api.jolpi.ca/ergast/f1/${year}/driverStandings.json`);
   const lists = data.MRData.StandingsTable.StandingsLists;
   if (!lists || lists.length === 0) return [];
   return lists[0].DriverStandings || [];
@@ -59,7 +58,7 @@ const Drivers = () => {
 
   const { data: standings, isLoading } = useQuery({
     queryKey: ["driver-standings", selectedYear],
-    queryFn: () => fetchDriverStandings(selectedYear),
+    queryFn: () => fetchDriverStandings(selectedYear).catch(() => []),
     staleTime: 1000 * 60 * 30,
   });
 

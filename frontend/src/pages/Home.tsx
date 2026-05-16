@@ -4,6 +4,7 @@ import { Search, X, User, Users, MapPin, Volume2, VolumeX } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { getUpcomingRace } from "@/data/f1-calendar";
+import { cachedJson } from "@/data/f1-cache";
 import { searchF1, getPopularSearches, type SearchItem } from "@/data/search-data";
 import { containsThai, getThaiSuggestions, type ThaiSuggestion } from "@/data/thai-mappings";
 import RaceFlag from "@/components/RaceFlag";
@@ -30,9 +31,7 @@ interface NextRaceData {
 
 async function fetchNextRace(): Promise<NextRaceData> {
   const currentYear = new Date().getFullYear();
-  const res = await fetch(`https://api.jolpi.ca/ergast/f1/${currentYear}.json`);
-  if (!res.ok) throw new Error("API error");
-  const data = await res.json();
+  const data = await cachedJson<any>(`https://api.jolpi.ca/ergast/f1/${currentYear}.json`);
   const races = data.MRData.RaceTable.Races;
   const now = new Date();
   const upcoming = races.find((r: any) => new Date(r.date) >= now) || races[races.length - 1];
@@ -213,6 +212,7 @@ const Home = () => {
 
   return (
     <div className="dark min-h-screen flex flex-col relative overflow-hidden bg-background">
+      <SiteHeader showSearch={false} />
 
       {/* Hidden Music Player */}
       <div id="yt-music-player" className="absolute opacity-0 pointer-events-none" />

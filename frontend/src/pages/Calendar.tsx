@@ -6,8 +6,11 @@ import { motion } from "framer-motion";
 import SiteHeader from "@/components/SiteHeader";
 import RaceFlag from "@/components/RaceFlag";
 import { CircuitCard } from "@/components/CircuitCard";
+import { AskF1Assistant } from "@/components/AskF1Assistant";
 
+import { cachedJson } from "@/data/f1-cache";
 import { f1Calendar2025, type F1Race } from "@/data/f1-calendar";
+import type { RagLiveData } from "@/data/rag";
 
 interface JolpicaRace {
   round: string;
@@ -59,9 +62,7 @@ function mapJolpicaToRace(jr: JolpicaRace): MappedRace {
 }
 
 async function fetchCalendar(year: number): Promise<MappedRace[]> {
-  const res = await fetch(`https://api.jolpi.ca/ergast/f1/${year}.json`);
-  if (!res.ok) throw new Error("API error");
-  const data = await res.json();
+  const data = await cachedJson<any>(`https://api.jolpi.ca/ergast/f1/${year}.json`);
   const races: JolpicaRace[] = data.MRData.RaceTable.Races;
   return races.map(mapJolpicaToRace);
 }
@@ -82,6 +83,32 @@ function getRaceStatus(date: string) {
   if (diffDays < 0) return { label: "Completed", color: "text-muted-foreground" };
   if (diffDays <= 7) return { label: `${diffDays}d to go`, color: "text-primary" };
   return { label: "Upcoming", color: "text-muted-foreground" };
+}
+
+function toRagRace(race: MappedRace) {
+  const sessions = Object.fromEntries(
+    race.sessions.map((session) => [session.label, { date: session.date, time: session.time }])
+  );
+
+  return {
+    round: String(race.round),
+    raceName: race.name,
+    Circuit: {
+      circuitId: race.circuitId || race.name.toLowerCase().replace(/\s+/g, "-"),
+      circuitName: race.circuit,
+      Location: {
+        locality: race.circuit,
+        country: race.country,
+      },
+    },
+    date: race.date,
+    time: sessions.Race?.time || "",
+    FirstPractice: sessions.FP1,
+    SecondPractice: sessions.FP2,
+    ThirdPractice: sessions.FP3,
+    Qualifying: sessions.Qualifying,
+    Sprint: sessions.Sprint,
+  };
 }
 
 const Calendar = () => {
@@ -119,6 +146,43 @@ const Calendar = () => {
   const nextRaceIdx = useMemo(() => {
     return displayRaces.findIndex((r) => getRaceStatus(r.date).label !== "Completed");
   }, [displayRaces]);
+
+  const calendarRagData = useMemo<RagLiveData | null>(() => {
+    if (!displayRaces.length) return null;
+
+    let lastCompletedIdx = -1;
+    for (let i = displayRaces.length - 1; i >= 0; i -= 1) {
+      if (getRaceStatus(displayRaces[i].date).label === "Completed") {
+        lastCompletedIdx = i;
+        break;
+      }
+    }
+
+    const latestIdx = nextRaceIdx > 0 ? nextRaceIdx - 1 : lastCompletedIdx;
+    const safeLatestIdx = latestIdx >= 0 ? latestIdx : 0;
+
+    return {
+      drivers: [],
+      constructors: [],
+      circuits: displayRaces.map((race) => ({
+        circuitId: race.circuitId || race.name.toLowerCase().replace(/\s+/g, "-"),
+        circuitName: race.circuit,
+        Location: {
+          locality: race.circuit,
+          country: race.country,
+        },
+      })),
+      standings: [],
+      previousRace: displayRaces[safeLatestIdx - 1] ? toRagRace(displayRaces[safeLatestIdx - 1]) : null,
+      lastRace: displayRaces[safeLatestIdx] ? toRagRace(displayRaces[safeLatestIdx]) : null,
+      nextRace: displayRaces[nextRaceIdx >= 0 ? nextRaceIdx : safeLatestIdx + 1]
+        ? toRagRace(displayRaces[nextRaceIdx >= 0 ? nextRaceIdx : safeLatestIdx + 1])
+        : null,
+      driverRaces: displayRaces.map(toRagRace),
+      year: selectedYear,
+      parsedQuery: `${selectedYear} race calendar`,
+    };
+  }, [displayRaces, nextRaceIdx, selectedYear]);
 
   // Auto-scroll to next race on load
   useEffect(() => {
@@ -189,6 +253,16 @@ const Calendar = () => {
             )}
           </div>
         </motion.div>
+
+        {!isLoading && calendarRagData && (
+          <div className="mb-8">
+            <AskF1Assistant
+              query={`${selectedYear} race calendar`}
+              liveData={calendarRagData}
+              webResults={[]}
+            />
+          </div>
+        )}
 
         {/* Month filter */}
         <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-1">

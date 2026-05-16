@@ -13,7 +13,7 @@ import {
   searchConstructors,
   searchCircuits,
   getDriverStandings,
-  getLatestRaceResult,
+  getRaceTimelineContext,
   getDriverResults,
   type ApiDriver,
   type ApiConstructor,
@@ -29,11 +29,37 @@ interface LiveSearchResults {
   circuits: ApiCircuit[];
   standings: ApiStanding[];
   lastRace: ApiRace | null;
+  previousRace?: ApiRace | null;
+  nextRace?: ApiRace | null;
   driverRaces?: ApiRace[];
   headshots: Record<string, string>;
   year: number;
   parsedQuery: string;
 }
+
+const getHighlightTerms = (query: string) => query
+  .toLowerCase()
+  .replace(/[^\p{L}\p{N}\s]/gu, " ")
+  .split(/\s+/)
+  .filter((term) => term.length > 2)
+  .slice(0, 8);
+
+const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const HighlightText = ({ text, terms }: { text: string; terms: string[] }) => {
+  if (!terms.length) return <>{text}</>;
+  const pattern = new RegExp(`(${terms.map(escapeRegex).join("|")})`, "gi");
+
+  return (
+    <>
+      {text.split(pattern).map((part, index) => (
+        terms.some((term) => part.toLowerCase() === term.toLowerCase())
+          ? <mark key={`${part}-${index}`} className="rounded bg-primary/20 px-0.5 text-primary">{part}</mark>
+          : <span key={`${part}-${index}`}>{part}</span>
+      ))}
+    </>
+  );
+};
 
 const SearchResults = () => {
   const [searchParams] = useSearchParams();
@@ -43,6 +69,7 @@ const SearchResults = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchData, setSearchData] = useState<{ results: WebResult[]; totalResults: number }>({ results: [], totalResults: 0 });
   const [liveData, setLiveData] = useState<LiveSearchResults | null>(null);
+  const highlightTerms = useMemo(() => getHighlightTerms(liveData?.parsedQuery || initialQuery), [initialQuery, liveData?.parsedQuery]);
 
   const filters = ["All", "Drivers", "Teams", "Circuits", "Results"];
 
@@ -56,9 +83,9 @@ const SearchResults = () => {
       parsedQuery ? searchConstructors(parsedQuery, year) : Promise.resolve([]),
       parsedQuery ? searchCircuits(parsedQuery, year) : Promise.resolve([]),
       getDriverStandings(year),
-      getLatestRaceResult(year),
+      getRaceTimelineContext(year),
       getDriverHeadshots(),
-    ]).then(async ([drivers, constructors, circuits, standings, lastRace, dsHeadshots]) => {
+    ]).then(async ([drivers, constructors, circuits, standings, raceTimeline, dsHeadshots]) => {
 
       let finalConstructors = [...constructors];
       let finalDriverRaces: ApiRace[] = [];
@@ -90,7 +117,11 @@ const SearchResults = () => {
 
       setLiveData({
         drivers: finalDrivers, constructors: finalConstructors, circuits,
-        standings, lastRace, driverRaces: finalDriverRaces,
+        standings,
+        lastRace: raceTimeline.latestRace,
+        previousRace: raceTimeline.previousRace,
+        nextRace: raceTimeline.nextRace,
+        driverRaces: finalDriverRaces,
         headshots: dsHeadshots, year, parsedQuery
       });
       setSearchData(webSearch(initialQuery));
@@ -228,7 +259,7 @@ const SearchResults = () => {
                             </div>
                             <div>
                               <p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">
-                                {d.givenName} {d.familyName}
+                                <HighlightText text={`${d.givenName} ${d.familyName}`} terms={highlightTerms} />
                                 {d.permanentNumber && <span className="text-muted-foreground font-normal ml-2">#{d.permanentNumber}</span>}
                               </p>
                               <p className="text-xs text-muted-foreground">{d.nationality}</p>
@@ -258,7 +289,9 @@ const SearchResults = () => {
                     {liveData.constructors.slice(0, 5).map((c) => (
                       <Link to={`/teams#${c.constructorId}`} key={c.constructorId} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0 group hover:bg-secondary/40 px-2 -mx-2 rounded-lg transition-colors cursor-pointer">
                         <div>
-                          <p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">{c.name}</p>
+                          <p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">
+                            <HighlightText text={c.name} terms={highlightTerms} />
+                          </p>
                           <p className="text-xs text-muted-foreground">{c.nationality}</p>
                         </div>
                         <span className="text-[10px] font-semibold text-primary opacity-0 group-hover:opacity-100 transition-opacity">
@@ -282,8 +315,12 @@ const SearchResults = () => {
                       <div key={c.circuitId} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
                         <div className="flex items-center gap-3">
                           <div>
-                            <p className="text-sm font-bold text-foreground">{c.circuitName}</p>
-                            <p className="text-xs text-muted-foreground">{c.Location.locality}, {c.Location.country}</p>
+                            <p className="text-sm font-bold text-foreground">
+                              <HighlightText text={c.circuitName} terms={highlightTerms} />
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              <HighlightText text={`${c.Location.locality}, ${c.Location.country}`} terms={highlightTerms} />
+                            </p>
                           </div>
                         </div>
                         <button
@@ -409,7 +446,7 @@ const SearchResults = () => {
                   transition={{ delay: i * 0.05 }}
                 >
                   {result.type !== "race" && result.type !== "standings" ? (
-                    <LinkCard result={result} />
+                    <LinkCard result={result} highlightTerms={highlightTerms} />
                   ) : null}
                 </motion.div>
               ))}
@@ -439,14 +476,18 @@ const SearchResults = () => {
   );
 };
 
-const LinkCard = ({ result }: { result: WebResult }) => (
+const LinkCard = ({ result, highlightTerms }: { result: WebResult; highlightTerms: string[] }) => (
   <a href={result.url} target="_blank" rel="noopener noreferrer" className="block bg-card border border-border rounded-xl p-5 hover:border-primary/20 transition-colors group cursor-pointer">
     <div className="flex items-center gap-2 mb-1">
       <span className="text-[10px] text-muted-foreground">{result.source}</span>
       {result.date && <span className="text-[10px] text-muted-foreground/60">· {result.date}</span>}
     </div>
-    <h3 className="text-sm font-bold text-primary group-hover:underline mb-1">{result.title}</h3>
-    <p className="text-xs text-muted-foreground leading-relaxed">{result.snippet}</p>
+    <h3 className="text-sm font-bold text-primary group-hover:underline mb-1">
+      <HighlightText text={result.title} terms={highlightTerms} />
+    </h3>
+    <p className="text-xs text-muted-foreground leading-relaxed">
+      <HighlightText text={result.snippet} terms={highlightTerms} />
+    </p>
     {result.tags && (
       <div className="flex gap-2 mt-3">
         {result.tags.map((tag) => (

@@ -6,7 +6,9 @@ import {
   searchCircuits,
   getDriverStandings,
   getLatestRaceResult,
-  getDriverResults
+  getDriverResults,
+  getLatestRaceContext,
+  getRaceTimelineContext
 } from '../f1-api';
 
 // Create a mock for global fetch
@@ -261,6 +263,110 @@ describe('f1-api.ts', () => {
 
       const result = await getLatestRaceResult(2024);
       expect(result).toBeNull();
+    });
+  });
+
+  describe('getLatestRaceContext', () => {
+    it('should fall back to the season schedule when no latest race result is available', async () => {
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ MRData: { RaceTable: { Races: [] } } })
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            MRData: {
+              RaceTable: {
+                Races: [
+                  {
+                    round: '1',
+                    raceName: 'Australian Grand Prix',
+                    Circuit: {
+                      circuitName: 'Albert Park',
+                      Location: { locality: 'Melbourne', country: 'Australia' }
+                    },
+                    date: '2024-03-24'
+                  }
+                ]
+              }
+            }
+          })
+        });
+
+      const result = await getLatestRaceContext(2024);
+      expect(result?.raceName).toBe('Australian Grand Prix');
+      expect(result?.Circuit.circuitName).toBe('Albert Park');
+    });
+  });
+
+  describe('getRaceTimelineContext', () => {
+    it('should return previous, latest, and next races from the schedule', async () => {
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            MRData: {
+              RaceTable: {
+                Races: [
+                  {
+                    round: '2',
+                    raceName: 'Chinese Grand Prix',
+                    Circuit: {
+                      circuitName: 'Shanghai International Circuit',
+                      Location: { locality: 'Shanghai', country: 'China' }
+                    },
+                    date: '2024-03-24',
+                    Results: []
+                  }
+                ]
+              }
+            }
+          })
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            MRData: {
+              RaceTable: {
+                Races: [
+                  {
+                    round: '1',
+                    raceName: 'Australian Grand Prix',
+                    Circuit: {
+                      circuitName: 'Albert Park',
+                      Location: { locality: 'Melbourne', country: 'Australia' }
+                    },
+                    date: '2024-03-17'
+                  },
+                  {
+                    round: '2',
+                    raceName: 'Chinese Grand Prix',
+                    Circuit: {
+                      circuitName: 'Shanghai International Circuit',
+                      Location: { locality: 'Shanghai', country: 'China' }
+                    },
+                    date: '2024-03-24'
+                  },
+                  {
+                    round: '3',
+                    raceName: 'Japanese Grand Prix',
+                    Circuit: {
+                      circuitName: 'Suzuka Circuit',
+                      Location: { locality: 'Suzuka', country: 'Japan' }
+                    },
+                    date: '2024-04-07'
+                  }
+                ]
+              }
+            }
+          })
+        });
+
+      const result = await getRaceTimelineContext(2024);
+      expect(result.previousRace?.raceName).toBe('Australian Grand Prix');
+      expect(result.latestRace?.raceName).toBe('Chinese Grand Prix');
+      expect(result.nextRace?.raceName).toBe('Japanese Grand Prix');
     });
   });
 });

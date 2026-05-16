@@ -7,6 +7,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import RaceFlag from "@/components/RaceFlag";
 import SiteHeader from "@/components/SiteHeader";
 import { getDriverHeadshots } from "@/data/live-api";
+import { cachedJson } from "@/data/f1-cache";
 
 const API_BASE = "https://api.jolpi.ca/ergast/f1";
 
@@ -84,39 +85,35 @@ interface CareerStats {
 }
 
 async function fetchDriverProfile(driverId: string, year: number) {
-  const [driverRes, standingRes, resultsRes, seasonsRes] = await Promise.all([
-    fetch(`${API_BASE}/drivers/${driverId}.json`),
-    fetch(`${API_BASE}/${year}/drivers/${driverId}/driverStandings.json`),
-    fetch(`${API_BASE}/${year}/drivers/${driverId}/results.json?limit=100`),
-    fetch(`${API_BASE}/drivers/${driverId}/seasons.json?limit=100`),
+  const [driverData, standingData, resultsData, seasonsData] = await Promise.allSettled([
+    cachedJson<any>(`${API_BASE}/drivers/${driverId}.json`),
+    cachedJson<any>(`${API_BASE}/${year}/drivers/${driverId}/driverStandings.json`),
+    cachedJson<any>(`${API_BASE}/${year}/drivers/${driverId}/results.json?limit=100`),
+    cachedJson<any>(`${API_BASE}/drivers/${driverId}/seasons.json?limit=100`),
   ]);
 
   let driver: DriverInfo | null = null;
-  if (driverRes.ok) {
-    const data = await driverRes.json();
-    const drivers = data.MRData.DriverTable.Drivers;
+  if (driverData.status === "fulfilled") {
+    const drivers = driverData.value.MRData.DriverTable.Drivers;
     if (drivers?.length > 0) driver = drivers[0];
   }
 
   let standing: SeasonStanding | null = null;
-  if (standingRes.ok) {
-    const data = await standingRes.json();
-    const lists = data.MRData.StandingsTable.StandingsLists;
+  if (standingData.status === "fulfilled") {
+    const lists = standingData.value.MRData.StandingsTable.StandingsLists;
     if (lists?.length > 0 && lists[0].DriverStandings?.length > 0) {
       standing = lists[0].DriverStandings[0];
     }
   }
 
   let races: RaceResult[] = [];
-  if (resultsRes.ok) {
-    const data = await resultsRes.json();
-    races = data.MRData.RaceTable.Races || [];
+  if (resultsData.status === "fulfilled") {
+    races = resultsData.value.MRData.RaceTable.Races || [];
   }
 
   let seasons: number[] = [];
-  if (seasonsRes.ok) {
-    const data = await seasonsRes.json();
-    seasons = (data.MRData.SeasonTable.Seasons || []).map((s: { season: string }) => parseInt(s.season));
+  if (seasonsData.status === "fulfilled") {
+    seasons = (seasonsData.value.MRData.SeasonTable.Seasons || []).map((s: { season: string }) => parseInt(s.season));
   }
 
   return { driver, standing, races, seasons };
@@ -129,9 +126,12 @@ async function fetchCareerStats(driverId: string): Promise<CareerStats> {
 
   // Paginate through all results
   while (true) {
-    const res = await fetch(`${API_BASE}/drivers/${driverId}/results.json?limit=${limit}&offset=${offset}`);
-    if (!res.ok) break;
-    const data = await res.json();
+    let data: any;
+    try {
+      data = await cachedJson<any>(`${API_BASE}/drivers/${driverId}/results.json?limit=${limit}&offset=${offset}`);
+    } catch {
+      break;
+    }
     const races: RaceResult[] = data.MRData.RaceTable.Races || [];
     allRaces.push(...races);
     const total = parseInt(data.MRData.total || "0");
@@ -178,7 +178,7 @@ const DriverProfile = () => {
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ["driver-profile", driverId, selectedYear],
-    queryFn: () => fetchDriverProfile(driverId!, selectedYear),
+    queryFn: () => fetchDriverProfile(driverId!, selectedYear).catch(() => ({ driver: null, standing: null, races: [], seasons: [] })),
     enabled: !!driverId,
     staleTime: 1000 * 60 * 30,
   });
@@ -533,6 +533,12 @@ const DriverProfile = () => {
               </div>
             )}
           </motion.div>
+        )}
+
+        {!isLoading && !driver && (
+          <div className="text-center py-16 bg-card border border-border rounded-xl">
+            <p className="text-muted-foreground">Driver profile is unavailable right now.</p>
+          </div>
         )}
       </main>
 

@@ -13,7 +13,11 @@ const navItems = [
   { to: "/teams", label: "Teams" },
 ];
 
-const SiteHeader = () => {
+interface SiteHeaderProps {
+  showSearch?: boolean;
+}
+
+const SiteHeader = ({ showSearch = true }: SiteHeaderProps) => {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const initialQuery = location.pathname === "/search" ? (searchParams.get("q") || "") : "";
@@ -85,6 +89,7 @@ const SiteHeader = () => {
         </div>
 
         {/* Search bar */}
+        {showSearch ? (
         <div ref={containerRef} className="flex-1 max-w-2xl relative">
           <div className={cn(
             "flex items-center gap-2 bg-secondary border rounded-full px-4 py-2 transition-all",
@@ -205,6 +210,9 @@ const SiteHeader = () => {
             )}
           </AnimatePresence>
         </div>
+        ) : (
+          <div className="flex-1" />
+        )}
 
         {/* Desktop Nav */}
         <div className="hidden md:flex items-center shrink-0">

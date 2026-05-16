@@ -38,7 +38,7 @@ function f1AssistantApi(env: Record<string, string>): Plugin {
           },
           body: JSON.stringify({
             model: env.OPENAI_MODEL || env.VITE_OPENAI_MODEL || "gpt-5.2",
-            instructions: "You are an F1 search assistant. Answer using only the provided retrieved context, and cite source numbers like [1].",
+            instructions: "You are the AI overview layer for an F1 web search experience. Answer using only the provided retrieved context, write like a concise search result summary, and cite source numbers like [1].",
             input: `Question: ${query}\n\nRetrieved context:\n${context}`,
             store: false,
           }),

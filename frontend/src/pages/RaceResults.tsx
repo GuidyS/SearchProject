@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import RaceFlag from "@/components/RaceFlag";
 
 import SiteHeader from "@/components/SiteHeader";
+import { cachedJson } from "@/data/f1-cache";
 
 const countryToFlagImg: Record<string, string> = {
   Australia: "au", China: "cn", Japan: "jp", Bahrain: "bh", "Saudi Arabia": "sa",
@@ -44,9 +45,7 @@ interface ApiRaceResult {
 }
 
 async function fetchRaceResults(year: number): Promise<ApiRaceResult[]> {
-  const res = await fetch(`https://api.jolpi.ca/ergast/f1/${year}/results.json?limit=500`);
-  if (!res.ok) throw new Error("API error");
-  const data = await res.json();
+  const data = await cachedJson<any>(`https://api.jolpi.ca/ergast/f1/${year}/results.json?limit=500`);
   return data.MRData.RaceTable.Races || [];
 }
 
@@ -56,7 +55,7 @@ const RaceResults = () => {
 
   const { data: races, isLoading } = useQuery({
     queryKey: ["race-results", selectedYear],
-    queryFn: () => fetchRaceResults(selectedYear),
+    queryFn: () => fetchRaceResults(selectedYear).catch(() => []),
     staleTime: 1000 * 60 * 30,
   });
 

@@ -47,9 +47,10 @@ export default async function handler(req: any, res: any) {
     body: JSON.stringify({
       model,
       instructions: [
-        "You are an F1 search assistant for a Thai and English React app.",
+        "You are the AI overview layer for an F1 web search experience in a Thai and English React app.",
         "Answer using only the provided retrieved context.",
         "If the context is insufficient, say what is missing.",
+        "Write like a search result summary, not like a chatbot debugging retrieval.",
         "Keep the answer concise, helpful, and cite source numbers like [1].",
       ].join(" "),
       input: `Question: ${query}\n\nRetrieved context:\n${context}`,

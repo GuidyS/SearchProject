@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import RaceFlag from "@/components/RaceFlag";
 import SiteHeader from "@/components/SiteHeader";
+import { cachedJson } from "@/data/f1-cache";
 
 const nationalityToFlagImg: Record<string, string> = {
   British: "gb", Dutch: "nl", Monegasque: "mc", Australian: "au", Spanish: "es",
@@ -40,24 +41,18 @@ interface ApiDriverEntry {
 }
 
 async function fetchTeamsData(year: number) {
-  const [standingsRes, driversRes] = await Promise.all([
-    fetch(`https://api.jolpi.ca/ergast/f1/${year}/constructorStandings.json`),
-    fetch(`https://api.jolpi.ca/ergast/f1/${year}/driverStandings.json`),
+  const [standingsData, driversData] = await Promise.all([
+    cachedJson<any>(`https://api.jolpi.ca/ergast/f1/${year}/constructorStandings.json`),
+    cachedJson<any>(`https://api.jolpi.ca/ergast/f1/${year}/driverStandings.json`),
   ]);
 
   let constructorStandings: ApiConstructorStanding[] = [];
-  if (standingsRes.ok) {
-    const data = await standingsRes.json();
-    const lists = data.MRData.StandingsTable.StandingsLists;
-    if (lists?.length > 0) constructorStandings = lists[0].ConstructorStandings || [];
-  }
+  const constructorLists = standingsData.MRData.StandingsTable.StandingsLists;
+  if (constructorLists?.length > 0) constructorStandings = constructorLists[0].ConstructorStandings || [];
 
   let driverEntries: ApiDriverEntry[] = [];
-  if (driversRes.ok) {
-    const data = await driversRes.json();
-    const lists = data.MRData.StandingsTable.StandingsLists;
-    if (lists?.length > 0) driverEntries = lists[0].DriverStandings || [];
-  }
+  const driverLists = driversData.MRData.StandingsTable.StandingsLists;
+  if (driverLists?.length > 0) driverEntries = driverLists[0].DriverStandings || [];
 
   return { constructorStandings, driverEntries };
 }
@@ -70,7 +65,7 @@ const Teams = () => {
 
   const { data, isLoading } = useQuery({
     queryKey: ["teams-data", selectedYear],
-    queryFn: () => fetchTeamsData(selectedYear),
+    queryFn: () => fetchTeamsData(selectedYear).catch(() => ({ constructorStandings: [], driverEntries: [] })),
     staleTime: 1000 * 60 * 30,
   });
 
