@@ -10,6 +10,7 @@ import { AskF1Assistant } from "@/components/AskF1Assistant";
 
 import { cachedJson } from "@/data/f1-cache";
 import { f1Calendar2025, type F1Race } from "@/data/f1-calendar";
+import { formatCalendarDate, raceDateParts, raceEnd, sessionStart, type CalendarSession, type CalendarTimeZone } from "@/data/calendar-time";
 import type { RagLiveData } from "@/data/rag";
 
 interface JolpicaRace {
@@ -29,7 +30,7 @@ interface JolpicaRace {
   Sprint?: { date: string; time: string };
 }
 
-type MappedRace = F1Race & { sessions: { label: string; date: string; time: string }[] };
+type MappedRace = F1Race & { sessions: CalendarSession[] };
 
 const countryToFlagImg: Record<string, string> = {
   Australia: "au", China: "cn", Japan: "jp", Bahrain: "bh", "Saudi Arabia": "sa",
@@ -39,7 +40,7 @@ const countryToFlagImg: Record<string, string> = {
   France: "fr", Germany: "de", Finland: "fi", Thailand: "th", Argentina: "ar", "New Zealand": "nz",
 };
 
-const MONTHS = ["ALL", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+const MONTHS = ["ALL", "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 
 function mapJolpicaToRace(jr: JolpicaRace): MappedRace {
   const d = new Date(jr.date);
@@ -62,25 +63,20 @@ function mapJolpicaToRace(jr: JolpicaRace): MappedRace {
 }
 
 async function fetchCalendar(year: number): Promise<MappedRace[]> {
-  const data = await cachedJson<any>(`https://api.jolpi.ca/ergast/f1/${year}.json`);
+  const data = await cachedJson<{ MRData: { RaceTable: { Races: JolpicaRace[] } } }>(`https://api.jolpi.ca/ergast/f1/${year}.json`);
   const races: JolpicaRace[] = data.MRData.RaceTable.Races;
   return races.map(mapJolpicaToRace);
 }
 
-function formatSessionTime(time: string) {
-  if (!time) return "";
-  const [h, m] = time.replace("Z", "").split(":");
-  const utcHour = parseInt(h);
-  const thHour = (utcHour + 7) % 24;
-  return `${String(thHour).padStart(2, "0")}:${m} TH`;
-}
-
-function getRaceStatus(date: string) {
-  const now = new Date();
-  const raceDate = new Date(date);
-  const diffMs = raceDate.getTime() - now.getTime();
+function getRaceStatus(race: MappedRace, now: Date) {
+  const raceTime = race.sessions.find((session) => session.label === "Race")?.time || "";
+  const start = sessionStart({ date: race.date, time: raceTime });
+  const end = raceEnd(race.date, raceTime);
+  const diffMs = (start || end).getTime() - now.getTime();
   const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-  if (diffDays < 0) return { label: "Completed", color: "text-muted-foreground" };
+  if (end.getTime() <= now.getTime()) return { label: "Completed", color: "text-muted-foreground" };
+  if (start && start.getTime() <= now.getTime()) return { label: "Race in progress", color: "text-primary" };
+  if (diffMs < 24 * 60 * 60 * 1000) return { label: `${Math.max(1, Math.ceil(diffMs / (60 * 60 * 1000)))}h to go`, color: "text-primary" };
   if (diffDays <= 7) return { label: `${diffDays}d to go`, color: "text-primary" };
   return { label: "Upcoming", color: "text-muted-foreground" };
 }
@@ -117,6 +113,8 @@ const Calendar = () => {
   const yearParam = parseInt(searchParams.get("year") || "") || currentYear;
   const [selectedYear, setSelectedYear] = useState(yearParam);
   const [monthFilter, setMonthFilter] = useState("ALL");
+  const [timeZone, setTimeZone] = useState<CalendarTimeZone>("Asia/Bangkok");
+  const [now, setNow] = useState(() => new Date());
   const [expandedRound, setExpandedRound] = useState<number | null>(null);
   const nextRaceRef = useRef<HTMLDivElement>(null);
 
@@ -132,27 +130,35 @@ const Calendar = () => {
 
   const displayRaces = races || fallbackRaces;
 
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  const displayRaceDate = (race: MappedRace) =>
+    raceDateParts(race.date, race.sessions.find((session) => session.label === "Race")?.time || "", timeZone);
+
   // Available months from actual data
   const availableMonths = useMemo(() => {
-    const months = new Set(displayRaces.map((r) => r.month));
+    const months = new Set(displayRaces.map((r) => raceDateParts(r.date, r.sessions.find((session) => session.label === "Race")?.time || "", timeZone).month));
     return ["ALL", ...MONTHS.filter((m) => m !== "ALL" && months.has(m))];
-  }, [displayRaces]);
+  }, [displayRaces, timeZone]);
 
   const filteredRaces = monthFilter === "ALL"
     ? displayRaces
-    : displayRaces.filter((r) => r.month === monthFilter);
+    : displayRaces.filter((r) => displayRaceDate(r).month === monthFilter);
 
   // Find next race index
   const nextRaceIdx = useMemo(() => {
-    return displayRaces.findIndex((r) => getRaceStatus(r.date).label !== "Completed");
-  }, [displayRaces]);
+    return displayRaces.findIndex((r) => getRaceStatus(r, now).label !== "Completed");
+  }, [displayRaces, now]);
 
   const calendarRagData = useMemo<RagLiveData | null>(() => {
     if (!displayRaces.length) return null;
 
     let lastCompletedIdx = -1;
     for (let i = displayRaces.length - 1; i >= 0; i -= 1) {
-      if (getRaceStatus(displayRaces[i].date).label === "Completed") {
+      if (getRaceStatus(displayRaces[i], now).label === "Completed") {
         lastCompletedIdx = i;
         break;
       }
@@ -182,7 +188,7 @@ const Calendar = () => {
       year: selectedYear,
       parsedQuery: `${selectedYear} race calendar`,
     };
-  }, [displayRaces, nextRaceIdx, selectedYear]);
+  }, [displayRaces, nextRaceIdx, selectedYear, now]);
 
   // Auto-scroll to next race on load
   useEffect(() => {
@@ -199,7 +205,7 @@ const Calendar = () => {
     setSearchParams({ year: String(year) });
   };
 
-  const yearOptions = Array.from({ length: currentYear - 1949 }, (_, i) => currentYear - i);
+  const yearOptions = Array.from({ length: currentYear - 1948 }, (_, i) => currentYear + 1 - i);
 
   return (
     <div className="dark min-h-screen bg-racing-vignette">
@@ -251,6 +257,19 @@ const Calendar = () => {
                 Jump to next race →
               </button>
             )}
+          </div>
+          <div className="flex items-center gap-2 mt-3 text-xs text-muted-foreground">
+            <label htmlFor="calendar-time-zone">Show times in</label>
+            <select
+              id="calendar-time-zone"
+              value={timeZone}
+              onChange={(event) => { setTimeZone(event.target.value as CalendarTimeZone); setMonthFilter("ALL"); }}
+              className="bg-secondary border border-border rounded-lg px-2 py-1 text-foreground"
+            >
+              <option value="Asia/Bangkok">Thailand (UTC+7)</option>
+              <option value="local">My local time</option>
+              <option value="UTC">UTC</option>
+            </select>
           </div>
         </motion.div>
 
@@ -320,7 +339,8 @@ const Calendar = () => {
             <div className="absolute left-[22px] top-0 bottom-0 w-px bg-border" />
             <div className="space-y-1">
               {filteredRaces.map((race, i) => {
-                const status = getRaceStatus(race.date);
+                const status = getRaceStatus(race, now);
+                const raceDate = displayRaceDate(race);
                 const isCompleted = status.label === "Completed";
                 const isNext = displayRaces.indexOf(race) === nextRaceIdx && selectedYear === currentYear;
                 const isExpanded = isNext || expandedRound === race.round;
@@ -355,8 +375,8 @@ const Calendar = () => {
                     >
                       <div className="flex items-center gap-4">
                         <div className="text-center shrink-0 w-14">
-                          <span className="text-[10px] font-bold tracking-wider text-primary uppercase">{race.month}</span>
-                          <p className="text-xl font-bold text-foreground leading-none">{race.days}</p>
+                          <span className="text-[10px] font-bold tracking-wider text-primary uppercase">{raceDate.month}</span>
+                          <p className="text-xl font-bold text-foreground leading-none">{raceDate.day}</p>
                         </div>
                         <div className="w-px h-10 bg-border shrink-0" />
                         <div className="shrink-0">
@@ -393,16 +413,16 @@ const Calendar = () => {
                               <div key={s.label} className="bg-secondary/50 rounded-lg px-3 py-2">
                                 <p className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">{s.label}</p>
                                 <p className="text-xs font-medium text-foreground">
-                                  {new Date(s.date).toLocaleDateString("en", { weekday: "short", month: "short", day: "numeric" })}
+                                  {formatCalendarDate(sessionStart(s) || new Date(`${s.date}T12:00:00Z`), s.time ? timeZone : "UTC", { weekday: "short", month: "short", day: "numeric" })}
                                 </p>
-                                {s.time && <p className="text-[10px] text-primary font-medium">{formatSessionTime(s.time)}</p>}
+                                {sessionStart(s) && <p className="text-[10px] text-primary font-medium">{formatCalendarDate(sessionStart(s)!, timeZone, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" })}</p>}
                               </div>
                             ))}
                           </div>
 
                           {/* Circuit Card matched to specific circuit below the schedule */}
                           <div className="mt-4">
-                            <CircuitCard circuitId={race.circuitId} />
+                            <CircuitCard circuitId={race.circuitId} sessions={race.sessions} />
                           </div>
                         </motion.div>
                       )}
