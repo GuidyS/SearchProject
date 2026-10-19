@@ -7,6 +7,7 @@ import { searchF1, type SearchItem } from "@/data/search-data";
 import { containsThai, getThaiSuggestions } from "@/data/thai-mappings";
 
 const navItems = [
+  { to: "/live", label: "Live" },
   { to: "/results", label: "Results" },
   { to: "/calendar", label: "Calendar" },
   { to: "/drivers", label: "Drivers" },

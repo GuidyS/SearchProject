@@ -12,6 +12,7 @@ import DriverProfile from "./pages/DriverProfile.tsx";
 import Teams from "./pages/Teams.tsx";
 import Calendar from "./pages/Calendar.tsx";
 import NotFound from "./pages/NotFound.tsx";
+import Live from "./pages/Live.tsx";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +31,7 @@ const App = () => (
           <Route path="/driver/:driverId" element={<DriverProfile />} />
           <Route path="/teams" element={<Teams />} />
           <Route path="/calendar" element={<Calendar />} />
+          <Route path="/live" element={<Live />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

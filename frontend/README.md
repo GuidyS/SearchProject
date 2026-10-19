@@ -12,6 +12,7 @@ F1 Search เป็นเว็บค้นหาและถามตอบข�
 - Highlight keyword ที่ match กับ query
 - มี Backend endpoint สำหรับเรียก LLM ผ่าน `POST /api/ask`
 - Cache ข้อมูล F1 API ด้วย memory cache และ localStorage เพื่อลดการโหลดซ้ำ
+- หน้า `/live` แสดงอันดับนักแข่ง สภาพอากาศ และสถานะแทร็กจาก OpenF1 โดยตรวจข้อมูลใหม่ทุก 15 วินาทีเมื่อเปิดหน้า
 
 ## Tech Stack
 
@@ -89,6 +90,15 @@ Request body:
 Backend จะรวม sources เป็น retrieved context แล้วส่งไปที่ OpenAI Responses API โดยกำหนดให้ LLM ตอบจาก context ที่ให้มาเท่านั้น
 
 ## Environment Variables
+
+หน้า Live ใช้ข้อมูลเซสชันล่าสุดที่เปิดเผยได้โดยไม่ต้องตั้งค่าเพิ่มเติม หากต้องการข้อมูลระหว่างการแข่งขันแบบเรียลไทม์ ต้องมีบัญชี OpenF1 ที่ได้รับสิทธิ์ และตั้งค่าบนเซิร์ฟเวอร์เท่านั้น:
+
+```bash
+OPENF1_USERNAME=your_email
+OPENF1_PASSWORD=your_password
+```
+
+ข้อมูลสดของ OpenF1 ต้องมีสมาชิกที่ได้รับสิทธิ์ หน้าเว็บจะบอกสถานะเมื่อยังเข้าถึงไม่ได้ และไม่ส่งข้อมูลบัญชีไปยังเบราว์เซอร์
 
 ถ้าต้องการใช้ LLM answer จริง ให้ตั้งค่า environment บน server:
 

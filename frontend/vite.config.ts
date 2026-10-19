@@ -2,6 +2,7 @@ import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
+import { loadLiveSnapshot } from "./api/live";
 
 function f1AssistantApi(env: Record<string, string>): Plugin {
   return {
@@ -27,7 +28,7 @@ function f1AssistantApi(env: Record<string, string>): Plugin {
         const query = String(body.query || "").slice(0, 500);
         const sources = Array.isArray(body.sources) ? body.sources.slice(0, 8) : [];
         const context = sources
-          .map((source: any, index: number) => `[${index + 1}] ${source.title} (${source.kind})\n${source.body}${source.url ? `\nURL: ${source.url}` : ""}`)
+          .map((source: { title?: string; kind?: string; body?: string; url?: string }, index: number) => `[${index + 1}] ${source.title} (${source.kind})\n${source.body}${source.url ? `\nURL: ${source.url}` : ""}`)
           .join("\n\n");
 
         const response = await fetch("https://api.openai.com/v1/responses", {
@@ -44,12 +45,40 @@ function f1AssistantApi(env: Record<string, string>): Plugin {
           }),
         });
 
-        const data = await response.json();
-        const answer = data.output_text || data.output?.flatMap((item: any) => item.content || []).map((content: any) => content.text).filter(Boolean).join("\n");
+        const data = await response.json() as {
+          output_text?: string;
+          output?: Array<{ content?: Array<{ text?: string }> }>;
+          error?: { message?: string };
+        };
+        const answer = data.output_text || data.output?.flatMap((item) => item.content || []).map((content) => content.text).filter(Boolean).join("\n");
 
         res.setHeader("Content-Type", "application/json");
         res.statusCode = response.ok ? 200 : response.status;
         res.end(JSON.stringify(response.ok ? { answer } : { error: data?.error?.message || "OpenAI request failed." }));
+      });
+    },
+  };
+}
+
+function liveApi(env: Record<string, string>): Plugin {
+  return {
+    name: "live-api",
+    configureServer(server) {
+      server.middlewares.use("/api/live", async (req, res) => {
+        res.setHeader("Content-Type", "application/json");
+        res.setHeader("Cache-Control", "no-store");
+        if (req.method !== "GET") {
+          res.statusCode = 405;
+          res.end(JSON.stringify({ error: "Method not allowed" }));
+          return;
+        }
+        try {
+          const snapshot = await loadLiveSnapshot({ username: env.OPENF1_USERNAME, password: env.OPENF1_PASSWORD });
+          res.end(JSON.stringify(snapshot));
+        } catch (error) {
+          res.statusCode = 503;
+          res.end(JSON.stringify({ error: error instanceof Error ? error.message : "Live data is unavailable." }));
+        }
       });
     },
   };
@@ -67,7 +96,7 @@ export default defineConfig(({ mode }) => {
         overlay: false,
       },
     },
-    plugins: [react(), mode === "development" && f1AssistantApi(env), mode === "development" && componentTagger()].filter(Boolean),
+    plugins: [react(), mode === "development" && f1AssistantApi(env), mode === "development" && liveApi(env), mode === "development" && componentTagger()].filter(Boolean),
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),

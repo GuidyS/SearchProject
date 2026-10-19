@@ -12,6 +12,7 @@ import DriverProfile from '../DriverProfile';
 import RaceResults from '../RaceResults';
 import SearchResults from '../SearchResults';
 import NotFound from '../NotFound';
+import Live from '../Live';
 
 const queryClient = new QueryClient();
 
@@ -63,6 +64,10 @@ describe('Page Components Smoke Tests', () => {
 
   it('renders NotFound page without crashing', () => {
     const { container } = renderWithProviders(<NotFound />);
+    expect(container).toBeTruthy();
+  });
+  it('renders Live page without crashing', () => {
+    const { container } = renderWithProviders(<Live />);
     expect(container).toBeTruthy();
   });
 });
