@@ -73,9 +73,11 @@ const Home = () => {
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
+  const [isMusicEnabled, setIsMusicEnabled] = useState(true);
   const [isMusicBlocked, setIsMusicBlocked] = useState(false);
   const [volume, setVolume] = useState(50);
   const volumeRef = useRef(50);
+  const musicEnabledRef = useRef(true);
   const autoStartPendingRef = useRef(true);
   const ytPlayerRef = useRef<any>(null);
   const ytMusicRef = useRef<any>(null);
@@ -101,7 +103,7 @@ const Home = () => {
     let mounted = true;
 
     const tryPlayMusic = () => {
-      if (!autoStartPendingRef.current || !ytMusicRef.current) return;
+      if (!musicEnabledRef.current || !autoStartPendingRef.current || !ytMusicRef.current) return;
       ytMusicRef.current.setVolume(volumeRef.current);
       ytMusicRef.current.unMute();
       ytMusicRef.current.playVideo();
@@ -169,6 +171,7 @@ const Home = () => {
             }
           },
           onAutoplayBlocked: () => {
+            if (!musicEnabledRef.current) return;
             autoStartPendingRef.current = true;
             setIsMusicPlaying(false);
             setIsMusicBlocked(true);
@@ -206,9 +209,14 @@ const Home = () => {
   const toggleMusic = () => {
     if (!ytMusicRef.current) return;
     if (isMusicPlaying) {
+      musicEnabledRef.current = false;
+      setIsMusicEnabled(false);
+      setIsMusicBlocked(false);
       autoStartPendingRef.current = false;
       ytMusicRef.current.pauseVideo();
     } else {
+      musicEnabledRef.current = true;
+      setIsMusicEnabled(true);
       autoStartPendingRef.current = true;
       ytMusicRef.current.setVolume(volumeRef.current);
       ytMusicRef.current.unMute();
@@ -466,19 +474,21 @@ const Home = () => {
           onClick={toggleMusic}
           className="flex items-center gap-2 px-4 py-2 border rounded-full transition-all duration-300"
           style={{
-            background: isMusicPlaying ? 'rgba(229, 70, 70, 0.15)' : 'rgba(255, 255, 255, 0.05)',
-            borderColor: isMusicPlaying ? 'rgba(229, 70, 70, 0.4)' : 'rgba(255, 255, 255, 0.1)',
+            background: isMusicEnabled ? 'rgba(229, 70, 70, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+            borderColor: isMusicEnabled ? 'rgba(229, 70, 70, 0.4)' : 'rgba(255, 255, 255, 0.1)',
             backdropFilter: 'blur(12px)',
           }}
+          title={isMusicBlocked ? 'Tap to start music (blocked by browser)' : undefined}
         >
-          {isMusicPlaying ? (
-            <Volume2 size={16} className="text-primary animate-pulse" />
+          {isMusicEnabled ? (
+            <Volume2 size={16} className={`text-primary ${isMusicPlaying ? 'animate-pulse' : ''}`} />
           ) : (
             <VolumeX size={16} className="text-muted-foreground" />
           )}
-          <span className={`text-[10px] font-bold uppercase tracking-wider ${isMusicPlaying ? 'text-primary' : 'text-muted-foreground'}`}>
-            {isMusicPlaying ? 'Music ON' : isMusicBlocked ? 'Tap for music' : 'Music OFF'}
+          <span className={`text-[10px] font-bold uppercase tracking-wider ${isMusicEnabled ? 'text-primary' : 'text-muted-foreground'}`}>
+            {isMusicEnabled ? 'Music ON' : 'Music OFF'}
           </span>
+          {isMusicBlocked && <span className="text-[9px] text-muted-foreground">Tap to hear</span>}
         </motion.button>
 
         {/* Volume Slider */}
