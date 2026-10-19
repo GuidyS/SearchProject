@@ -28,6 +28,27 @@ const teamColors: Record<string, string> = {
   "Cadillac F1 Team": "hsl(45, 80%, 50%)",
 };
 
+// 2026 car renders from the official Formula 1 team profiles.
+const teamCars2026: Record<string, string> = {
+  "Mercedes": "mercedes",
+  "Ferrari": "ferrari",
+  "McLaren": "mclaren",
+  "Red Bull": "redbullracing",
+  "RB F1 Team": "racingbulls",
+  "Alpine F1 Team": "alpine",
+  "Haas F1 Team": "haas",
+  "Audi": "audi",
+  "Williams": "williams",
+  "Aston Martin": "astonmartin",
+  "Cadillac F1 Team": "cadillac",
+};
+
+function getTeamCarImage(teamName: string, year: number): string | null {
+  const slug = teamCars2026[teamName];
+  if (year !== 2026 || !slug) return null;
+  return `https://media.formula1.com/image/upload/c_lfill,w_960/q_auto/v1740000001/common/f1/2026/${slug}/2026${slug}carright.webp`;
+}
+
 interface ApiConstructorStanding {
   position: string;
   points: string;
@@ -152,6 +173,7 @@ const Teams = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {data.constructorStandings.map((team, i) => {
               const color = teamColors[team.Constructor.name] || "hsl(0, 0%, 40%)";
+              const carImage = getTeamCarImage(team.Constructor.name, selectedYear);
               const teamDrivers = data.driverEntries.filter(
                 (d) => d.Constructors.some((c) => c.constructorId === team.Constructor.constructorId)
               );
@@ -167,7 +189,7 @@ const Teams = () => {
                 >
                   <div className="absolute inset-y-0 left-0 w-1.5" style={{ background: color }} />
                   <div className="pl-6 pr-5 py-5">
-                    <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-start justify-between mb-2">
                       <div>
                         <div className="flex items-center gap-2">
                           <h2 className="text-lg font-black text-foreground uppercase tracking-tight">{team.Constructor.name}</h2>
@@ -180,12 +202,23 @@ const Teams = () => {
                         <p className="text-[10px] text-muted-foreground">{team.wins} wins</p>
                       </div>
                     </div>
-                    <div className="flex gap-3">
+                    {carImage && (
+                      <div className="h-16 sm:h-20 mb-2 flex items-center justify-center overflow-hidden">
+                        <img
+                          src={carImage}
+                          alt={`${team.Constructor.name} 2026 Formula 1 car`}
+                          loading="lazy"
+                          className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
+                          onError={(event) => { event.currentTarget.hidden = true; }}
+                        />
+                      </div>
+                    )}
+                    <div className="flex flex-wrap gap-2">
                       {teamDrivers.map((entry) => (
                         <a
                           key={entry.Driver.driverId}
                           href={`/driver/${entry.Driver.driverId}`}
-                          className="flex-1 flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-muted/50 transition-colors"
+                          className="flex-1 basis-[calc(50%-0.25rem)] min-w-0 flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-muted/50 transition-colors"
                           style={{ background: `${color}15` }}
                         >
                           <span className="text-xl font-black italic text-foreground/60">
