@@ -73,7 +73,10 @@ const Home = () => {
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
-  const [volume, setVolume] = useState(100);
+  const [isMusicBlocked, setIsMusicBlocked] = useState(false);
+  const [volume, setVolume] = useState(50);
+  const volumeRef = useRef(50);
+  const autoStartPendingRef = useRef(true);
   const ytPlayerRef = useRef<any>(null);
   const ytMusicRef = useRef<any>(null);
 
@@ -95,8 +98,21 @@ const Home = () => {
   // ===== YouTube IFrame API for Background Video =====
   useEffect(() => {
     const YT = (window as any).YT;
+    let mounted = true;
+
+    const tryPlayMusic = () => {
+      if (!autoStartPendingRef.current || !ytMusicRef.current) return;
+      ytMusicRef.current.setVolume(volumeRef.current);
+      ytMusicRef.current.unMute();
+      ytMusicRef.current.playVideo();
+    };
+
+    const retryOnInteraction = () => tryPlayMusic();
+    document.addEventListener('pointerdown', retryOnInteraction);
+    document.addEventListener('keydown', retryOnInteraction);
 
     const initPlayer = () => {
+      if (!mounted) return;
       // Main Video Player (Fixed to TimFrogt clip)
       ytPlayerRef.current = new (window as any).YT.Player('yt-bg-player', {
         videoId: BG_VIDEO_ID,
@@ -130,19 +146,32 @@ const Home = () => {
           rel: 0,
           modestbranding: 1,
           enablejsapi: 1,
+          playsinline: 1,
         },
         events: {
           onReady: (e: any) => {
-            e.target.setVolume(volume);
-            if (isMusicPlaying) e.target.playVideo();
+            e.target.setVolume(volumeRef.current);
+            tryPlayMusic();
           },
           onStateChange: (e: any) => {
+            if (e.data === 1) {
+              autoStartPendingRef.current = false;
+              setIsMusicPlaying(true);
+              setIsMusicBlocked(false);
+            } else if (e.data === 2) {
+              setIsMusicPlaying(false);
+            }
             // When a track ends, play the next one in the shuffled playlist
             if (e.data === 0) {
               musicIndexRef.current = (musicIndexRef.current + 1) % musicPlaylist.length;
               ytMusicRef.current?.loadVideoById(musicPlaylist[musicIndexRef.current]);
-              ytMusicRef.current?.setVolume(volume);
+              ytMusicRef.current?.setVolume(volumeRef.current);
             }
+          },
+          onAutoplayBlocked: () => {
+            autoStartPendingRef.current = true;
+            setIsMusicPlaying(false);
+            setIsMusicBlocked(true);
           },
         },
       });
@@ -161,24 +190,35 @@ const Home = () => {
     }
 
     return () => {
+      mounted = false;
+      document.removeEventListener('pointerdown', retryOnInteraction);
+      document.removeEventListener('keydown', retryOnInteraction);
+      if ((window as any).onYouTubeIframeAPIReady === initPlayer) {
+        (window as any).onYouTubeIframeAPIReady = undefined;
+      }
       ytPlayerRef.current?.destroy();
       ytMusicRef.current?.destroy();
+      ytPlayerRef.current = null;
+      ytMusicRef.current = null;
     };
-  }, []);
+  }, [musicPlaylist]);
 
   const toggleMusic = () => {
     if (!ytMusicRef.current) return;
     if (isMusicPlaying) {
+      autoStartPendingRef.current = false;
       ytMusicRef.current.pauseVideo();
     } else {
+      autoStartPendingRef.current = true;
+      ytMusicRef.current.setVolume(volumeRef.current);
+      ytMusicRef.current.unMute();
       ytMusicRef.current.playVideo();
-      ytMusicRef.current.setVolume(volume);
     }
-    setIsMusicPlaying(!isMusicPlaying);
   };
 
   const handleVolumeChange = (newVolume: number) => {
     setVolume(newVolume);
+    volumeRef.current = newVolume;
     if (ytMusicRef.current) {
       ytMusicRef.current.setVolume(newVolume);
     }
@@ -437,7 +477,7 @@ const Home = () => {
             <VolumeX size={16} className="text-muted-foreground" />
           )}
           <span className={`text-[10px] font-bold uppercase tracking-wider ${isMusicPlaying ? 'text-primary' : 'text-muted-foreground'}`}>
-            {isMusicPlaying ? 'Music ON' : 'Music OFF'}
+            {isMusicPlaying ? 'Music ON' : isMusicBlocked ? 'Tap for music' : 'Music OFF'}
           </span>
         </motion.button>
 
@@ -451,6 +491,7 @@ const Home = () => {
             type="range"
             min="0"
             max="100"
+            aria-label="Music volume"
             value={volume}
             onChange={(e) => handleVolumeChange(parseInt(e.target.value))}
             className="w-20 md:w-24 h-1 bg-white/20 accent-primary cursor-pointer appearance-none rounded-full"
