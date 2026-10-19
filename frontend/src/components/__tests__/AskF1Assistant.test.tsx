@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 import { AskF1Assistant } from "../AskF1Assistant";
 import type { RagLiveData } from "@/data/rag";
 
@@ -34,6 +35,22 @@ describe("AskF1Assistant LLM/RAG behavior", () => {
     vi.restoreAllMocks();
   });
 
+  it("shows a concise calendar overview linked to the selected season", () => {
+    const { container } = render(
+      <MemoryRouter>
+        <AskF1Assistant
+          query="2026 race calendar"
+          liveData={{ ...liveData, seasonSchedule: [liveData.nextRace!] }}
+          webResults={[]}
+        />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText(/1 Grand Prix in the 2026 season/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /2026 F1 race calendar/i })).toHaveAttribute("href", "/calendar?year=2026");
+    expect(container.querySelector("mark")).toBeNull();
+  });
+
   it("renders a local RAG search summary and source list before calling the LLM", () => {
     render(
       <AskF1Assistant
@@ -43,7 +60,7 @@ describe("AskF1Assistant LLM/RAG behavior", () => {
       />
     );
 
-    expect(screen.getByText("AI Overview")).toBeInTheDocument();
+    expect(screen.getByText("F1 Overview")).toBeInTheDocument();
     expect(screen.getByText("Search summary")).toBeInTheDocument();
     expect(screen.getByText("Sources")).toBeInTheDocument();
     expect(screen.getByText("Next race: Miami Grand Prix")).toBeInTheDocument();
@@ -67,7 +84,7 @@ describe("AskF1Assistant LLM/RAG behavior", () => {
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /search with ai/i }));
+    fireEvent.click(screen.getByRole("button", { name: /ask ai/i }));
 
     await waitFor(() => {
       expect(screen.getByText("AI answer")).toBeInTheDocument();
@@ -106,7 +123,7 @@ describe("AskF1Assistant LLM/RAG behavior", () => {
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /search with ai/i }));
+    fireEvent.click(screen.getByRole("button", { name: /ask ai/i }));
 
     await waitFor(() => {
       expect(screen.getByText("Search summary")).toBeInTheDocument();

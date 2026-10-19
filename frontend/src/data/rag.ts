@@ -6,7 +6,7 @@ import type { ApiCircuit, ApiConstructor, ApiDriver, ApiRace, ApiStanding } from
 export interface RagSource {
   id: string;
   title: string;
-  kind: "driver" | "team" | "circuit" | "standing" | "race" | "media" | "article";
+  kind: "driver" | "team" | "circuit" | "standing" | "race" | "calendar" | "media" | "article";
   body: string;
   url?: string;
   relevanceScore?: number;
@@ -26,6 +26,7 @@ export interface RagLiveData {
   lastRace: ApiRace | null;
   previousRace?: ApiRace | null;
   nextRace?: ApiRace | null;
+  seasonSchedule?: ApiRace[];
   driverRaces?: ApiRace[];
   year: number;
   parsedQuery: string;
@@ -39,6 +40,7 @@ const sourceTypeBoost: Record<RagSource["kind"], number> = {
   circuit: 0.12,
   standing: 0.08,
   race: 0.15,
+  calendar: 0.2,
   article: 0.06,
   media: 0.03,
 };
@@ -291,6 +293,33 @@ function asksForStandingsLeader(query: string): boolean {
   );
 }
 
+function asksForCalendar(query: string): boolean {
+  return /\b(calendar|schedule|fixtures)\b/i.test(query) || /ตาราง(?:แข่ง|การแข่งขัน)|ปฏิทิน(?:แข่ง|การแข่งขัน)/.test(query);
+}
+
+function calendarSource(schedule: ApiRace[], year: number): RagSource {
+  const today = todayIsoDate();
+  const upcoming = schedule.filter((race) => race.date >= today).slice(0, 3);
+  const featured = upcoming.length ? upcoming : schedule.slice(0, 3);
+  const dateLabel = (date: string) => new Date(`${date}T12:00:00Z`).toLocaleDateString("en-GB", {
+    day: "numeric", month: "short", timeZone: "UTC",
+  });
+
+  return {
+    id: `calendar-${year}`,
+    title: `${year} F1 race calendar`,
+    kind: "calendar",
+    url: `/calendar?year=${year}`,
+    body: [
+      `${schedule.length} ${schedule.length === 1 ? "Grand Prix" : "Grands Prix"} in the ${year} season.`,
+      `Season: ${dateLabel(schedule[0].date)} – ${dateLabel(schedule[schedule.length - 1].date)}.`,
+      `${upcoming.length ? "Upcoming races" : "Opening rounds"}:`,
+      ...featured.map((race) => `Round ${race.round}: ${race.raceName} · ${dateLabel(race.date)}`),
+      "Open the calendar for every race and session.",
+    ].join("\n"),
+  };
+}
+
 function driverSource(driver: ApiDriver, standings: ApiStanding[], year: number): RagSource {
   const standing = standings.find((s) => s.Driver.driverId === driver.driverId);
   const team = standing?.Constructors?.[0]?.name;
@@ -364,6 +393,7 @@ export function buildRagSources(
   const sources: RagSource[] = [];
 
   if (liveData) {
+    if (liveData.seasonSchedule?.length) sources.push(calendarSource(liveData.seasonSchedule, liveData.year));
     sources.push(...liveData.drivers.map((d) => driverSource(d, liveData.standings, liveData.year)));
     sources.push(...liveData.constructors.map((c) => teamSource(c, liveData.standings, liveData.year)));
     sources.push(...liveData.circuits.map((c) => ({
@@ -399,6 +429,11 @@ export function buildRagSources(
 }
 
 export function retrieveRagSources(query: string, sources: RagSource[]): RagSource[] {
+  if (asksForCalendar(query)) {
+    const calendar = sources.find((source) => source.kind === "calendar");
+    if (calendar) return [{ ...calendar, relevanceScore: 100, matchedKeywords: [] }];
+  }
+
   if (asksForTodayStart(query)) {
     const today = todayIsoDate();
     const todayRace = sources.find((source) => source.kind === "race" && sourceRaceDate(source) === today);
@@ -458,6 +493,7 @@ export function makeLocalRagAnswer(query: string, sources: RagSource[]): string 
   }
 
   const top = sources[0];
+  if (top.kind === "calendar") return top.body;
   const supporting = sources.slice(1, 4);
   const details = supporting.map((source) => `- ${source.title}: ${source.body}`).join("\n");
   const isThai = containsThai(query);

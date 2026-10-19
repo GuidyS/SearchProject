@@ -32,6 +32,7 @@ interface LiveSearchResults {
   lastRace: ApiRace | null;
   previousRace?: ApiRace | null;
   nextRace?: ApiRace | null;
+  seasonSchedule?: ApiRace[];
   driverRaces?: ApiRace[];
   headshots: Record<string, string>;
   year: number;
@@ -122,6 +123,7 @@ const SearchResults = () => {
         lastRace: raceTimeline.latestRace,
         previousRace: raceTimeline.previousRace,
         nextRace: raceTimeline.nextRace,
+        seasonSchedule: raceTimeline.schedule,
         driverRaces: finalDriverRaces,
         headshots: dsHeadshots, year, parsedQuery
       });

@@ -178,7 +178,7 @@ const Calendar = () => {
       nextRace: displayRaces[nextRaceIdx >= 0 ? nextRaceIdx : safeLatestIdx + 1]
         ? toRagRace(displayRaces[nextRaceIdx >= 0 ? nextRaceIdx : safeLatestIdx + 1])
         : null,
-      driverRaces: displayRaces.map(toRagRace),
+      seasonSchedule: displayRaces.map(toRagRace),
       year: selectedYear,
       parsedQuery: `${selectedYear} race calendar`,
     };

@@ -114,6 +114,29 @@ describe("RAG data helpers", () => {
     expect(bundle.sources.length).toBeGreaterThan(0);
   });
 
+  it("answers a season calendar query from the full schedule without unrelated driver races", () => {
+    const bundle = buildRagBundle("2026 race calendar", {
+      ...liveData,
+      seasonSchedule: [
+        liveData.previousRace!,
+        liveData.lastRace!,
+        liveData.nextRace!,
+      ],
+      driverRaces: [{
+        ...liveData.lastRace!,
+        round: "7",
+        raceName: "Canadian Grand Prix",
+      }],
+    }, []);
+
+    expect(bundle.sources).toHaveLength(1);
+    expect(bundle.sources[0].kind).toBe("calendar");
+    expect(bundle.answer).toContain("3 Grands Prix");
+    expect(bundle.answer).toContain("Bahrain Grand Prix");
+    expect(bundle.answer).not.toContain("Canadian Grand Prix");
+    expect(bundle.sources[0].url).toBe("/calendar?year=2026");
+  });
+
   it("does not use generated media as the strongest source for mixed Thai driver queries", () => {
     const bundle = buildRagBundle("Max ล่าสุด", {
       ...liveData,

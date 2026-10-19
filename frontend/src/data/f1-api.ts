@@ -64,6 +64,7 @@ export interface RaceTimelineContext {
   previousRace: ApiRace | null;
   latestRace: ApiRace | null;
   nextRace: ApiRace | null;
+  schedule: ApiRace[];
 }
 
 // Parse year from query: "Lando 2023" or "แลนโด 2023" → { query: "lando", year: 2023 }
@@ -218,6 +219,7 @@ export async function getRaceTimelineContext(year: number): Promise<RaceTimeline
       previousRace: null,
       latestRace: raceWithResult,
       nextRace: null,
+      schedule,
     };
   }
 
@@ -238,6 +240,7 @@ export async function getRaceTimelineContext(year: number): Promise<RaceTimeline
       previousRace: null,
       latestRace: null,
       nextRace: schedule[0] || null,
+      schedule,
     };
   }
 
@@ -245,5 +248,6 @@ export async function getRaceTimelineContext(year: number): Promise<RaceTimeline
     previousRace: schedule[latestIndex - 1] || null,
     latestRace: raceWithResult || schedule[latestIndex] || null,
     nextRace: schedule[latestIndex + 1] || null,
+    schedule,
   };
 }

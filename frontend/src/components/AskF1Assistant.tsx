@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { BrainCircuit, ExternalLink, Loader2, Sparkles } from "lucide-react";
+import { Link } from "react-router-dom";
 import { buildRagBundle, type RagLiveData, type RagSource } from "@/data/rag";
 import type { WebResult } from "@/data/search-data";
 
@@ -16,6 +17,7 @@ interface AskApiResponse {
 
 const formatKind = (kind: RagSource["kind"]) => {
   switch (kind) {
+    case "calendar": return "Calendar";
     case "driver": return "Driver";
     case "team": return "Team";
     case "circuit": return "Circuit";
@@ -26,38 +28,8 @@ const formatKind = (kind: RagSource["kind"]) => {
   }
 };
 
-const getHighlightTerms = (query: string, sources: RagSource[]) => {
-  const sourceTerms = sources.flatMap((source) => source.matchedKeywords || []);
-  const queryTerms = query
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s]/gu, " ")
-    .split(/\s+/)
-    .filter((term) => term.length > 2);
-
-  return [...new Set([...queryTerms, ...sourceTerms])].slice(0, 8);
-};
-
-const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-const HighlightText = ({ text, terms }: { text: string; terms: string[] }) => {
-  const usableTerms = terms.filter(Boolean);
-  if (!usableTerms.length) return <>{text}</>;
-
-  const pattern = new RegExp(`(${usableTerms.map(escapeRegex).join("|")})`, "gi");
-  return (
-    <>
-      {text.split(pattern).map((part, index) => (
-        usableTerms.some((term) => part.toLowerCase() === term.toLowerCase())
-          ? <mark key={`${part}-${index}`} className="rounded bg-primary/20 px-0.5 text-primary">{part}</mark>
-          : <span key={`${part}-${index}`}>{part}</span>
-      ))}
-    </>
-  );
-};
-
 export function AskF1Assistant({ query, liveData, webResults }: AskF1AssistantProps) {
   const ragBundle = useMemo(() => buildRagBundle(query, liveData, webResults), [query, liveData, webResults]);
-  const highlightTerms = useMemo(() => getHighlightTerms(query, ragBundle.sources), [query, ragBundle.sources]);
   const [answer, setAnswer] = useState(ragBundle.answer);
   const [mode, setMode] = useState<"local" | "llm">("local");
   const [isAsking, setIsAsking] = useState(false);
@@ -107,9 +79,9 @@ export function AskF1Assistant({ query, liveData, webResults }: AskF1AssistantPr
             <BrainCircuit className="text-primary" size={20} />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-foreground">AI Overview</h3>
+            <h3 className="text-sm font-bold text-foreground">F1 Overview</h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Summarized from F1 API data and indexed site results.
+              Quick answer from F1 data and indexed results.
             </p>
           </div>
         </div>
@@ -119,7 +91,7 @@ export function AskF1Assistant({ query, liveData, webResults }: AskF1AssistantPr
           className="inline-flex items-center justify-center gap-2 rounded-lg border border-primary/30 px-3 py-2 text-xs font-bold text-primary hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
         >
           {isAsking ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-          {isAsking ? "Searching..." : "Search with AI"}
+          {isAsking ? "Searching..." : "Ask AI"}
         </button>
       </div>
 
@@ -130,8 +102,8 @@ export function AskF1Assistant({ query, liveData, webResults }: AskF1AssistantPr
           </span>
           {error && <span className="text-[10px] text-muted-foreground">Using indexed results</span>}
         </div>
-        <p className="whitespace-pre-line text-sm leading-relaxed text-foreground">
-          <HighlightText text={answer} terms={highlightTerms} />
+        <p className="whitespace-pre-line text-sm leading-7 text-foreground">
+          {answer}
         </p>
       </div>
 
@@ -146,23 +118,28 @@ export function AskF1Assistant({ query, liveData, webResults }: AskF1AssistantPr
           Sources
         </p>
         <div className="grid gap-2">
-          {ragBundle.sources.slice(0, 5).map((source) => {
+          {ragBundle.sources.slice(0, 3).map((source) => {
             const content = (
               <>
                 <span className="min-w-16 text-[10px] font-bold uppercase tracking-wider text-primary">
                   {formatKind(source.kind)}
                 </span>
                 <span className="text-xs font-medium text-foreground truncate">
-                  <HighlightText text={source.title} terms={highlightTerms} />
+                  {source.title}
                 </span>
-                <span className="ml-auto rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
-                  {source.relevanceScore ?? 0}%
-                </span>
-                {source.url && <ExternalLink size={12} className="text-muted-foreground shrink-0" />}
+                {source.url && !source.url.startsWith("/") && <ExternalLink size={12} className="text-muted-foreground shrink-0" />}
               </>
             );
 
-            return source.url ? (
+            return source.url?.startsWith("/") ? (
+              <Link
+                key={source.id}
+                to={source.url}
+                className="flex items-center gap-3 rounded-lg border border-border/70 bg-background/40 px-3 py-2 hover:border-primary/30 transition-colors"
+              >
+                {content}
+              </Link>
+            ) : source.url ? (
               <a
                 key={source.id}
                 href={source.url}
