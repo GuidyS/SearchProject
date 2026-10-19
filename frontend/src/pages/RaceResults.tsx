@@ -3,9 +3,9 @@ import { ChevronLeft, ChevronRight, CalendarOff } from "lucide-react";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import RaceFlag from "@/components/RaceFlag";
+import { fetchRaceWinners } from "@/data/race-results";
 
 import SiteHeader from "@/components/SiteHeader";
-import { cachedJson } from "@/data/f1-cache";
 
 const countryToFlagImg: Record<string, string> = {
   Australia: "au", China: "cn", Japan: "jp", Bahrain: "bh", "Saudi Arabia": "sa",
@@ -28,38 +28,17 @@ const teamColors: Record<string, string> = {
   "Kick Sauber": "hsl(0, 80%, 45%)",
 };
 
-interface ApiRaceResult {
-  round: string;
-  raceName: string;
-  Circuit: { circuitId: string; circuitName: string; Location: { country: string } };
-  date: string;
-  Results?: {
-    position: string;
-    Driver: { givenName: string; familyName: string };
-    Constructor: { name: string };
-    Time?: { time: string };
-    laps: string;
-    status: string;
-    points: string;
-  }[];
-}
-
-async function fetchRaceResults(year: number): Promise<ApiRaceResult[]> {
-  const data = await cachedJson<any>(`https://api.jolpi.ca/ergast/f1/${year}/results.json?limit=500`);
-  return data.MRData.RaceTable.Races || [];
-}
-
 const RaceResults = () => {
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
 
-  const { data: races, isLoading } = useQuery({
+  const { data: races, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["race-results", selectedYear],
-    queryFn: () => fetchRaceResults(selectedYear).catch(() => []),
+    queryFn: () => fetchRaceWinners(selectedYear),
     staleTime: 1000 * 60 * 30,
   });
 
-  const completedRaces = races?.filter((r) => r.Results && r.Results.length > 0) || [];
+  const completedRaces = races || [];
   const yearOptions = Array.from({ length: currentYear - 1949 }, (_, i) => currentYear - i);
 
   return (
@@ -96,7 +75,7 @@ const RaceResults = () => {
           </div>
         </motion.div>
         <p className="text-sm text-muted-foreground mb-8">
-          {isLoading ? "Loading..." : `${completedRaces.length} races completed · Live data from Jolpica F1 API`}
+          {isLoading ? "Loading..." : isError ? "Race results unavailable" : `${completedRaces.length} races completed · Results from Jolpica F1 API`}
         </p>
 
         {isLoading && (
@@ -107,14 +86,22 @@ const RaceResults = () => {
           </div>
         )}
 
-        {!isLoading && completedRaces.length === 0 && (
+        {isError && (
+          <div className="rounded-xl border border-border bg-card p-6" role="alert">
+            <p className="font-semibold text-foreground">โหลดผลการแข่งขันไม่สำเร็จ</p>
+            <p className="mt-1 text-sm text-muted-foreground">{error instanceof Error ? error.message : "โปรดลองใหม่อีกครั้ง"}</p>
+            <button type="button" onClick={() => void refetch()} className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">ลองใหม่</button>
+          </div>
+        )}
+
+        {!isLoading && !isError && completedRaces.length === 0 && (
           <div className="text-center py-20">
             <CalendarOff className="text-muted-foreground mx-auto mb-3" size={48} />
             <p className="text-muted-foreground">No race results available for {selectedYear}</p>
           </div>
         )}
 
-        {!isLoading && completedRaces.length > 0 && (
+        {!isLoading && !isError && completedRaces.length > 0 && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-card border border-border rounded-xl overflow-hidden">
             <div className="grid grid-cols-[1.5fr_0.8fr_1.3fr_1.2fr_0.6fr_1fr] gap-4 px-6 py-4 border-b border-border">
               <span className="text-[10px] font-semibold tracking-[0.2em] uppercase text-muted-foreground">Grand Prix</span>
