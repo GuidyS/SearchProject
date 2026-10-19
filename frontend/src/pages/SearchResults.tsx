@@ -22,6 +22,7 @@ import {
   type ApiRace,
 } from "@/data/f1-api";
 import { getDriverHeadshots } from "@/data/live-api";
+import { getDriverPortrait } from "@/data/driver-images";
 
 interface LiveSearchResults {
   drivers: ApiDriver[];
@@ -249,7 +250,7 @@ const SearchResults = () => {
                             {/* Driver Headshot */}
                             <div className="w-10 h-10 rounded-full bg-secondary overflow-hidden shrink-0 border border-border/50">
                               <img
-                                src={liveData.headshots[d.familyName.substring(0, 3).toUpperCase()] || `https://ui-avatars.com/api/?name=${d.givenName}+${d.familyName}&background=random&color=fff`}
+                                src={getDriverPortrait(d, liveData.headshots, liveData.year) || `https://ui-avatars.com/api/?name=${d.givenName}+${d.familyName}&background=random&color=fff`}
                                 alt={d.givenName}
                                 className="w-full h-full object-cover object-top"
                                 onError={(e) => {

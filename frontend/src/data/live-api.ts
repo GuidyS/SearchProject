@@ -74,6 +74,7 @@ export async function getDriverHeadshots() {
       if (d.name_acronym && d.headshot_url) {
         // Remove the thumbnail transform suffix to fetch the original high-resolution F1 image
         headshots[d.name_acronym] = d.headshot_url.replace(/\.transform\/.*$/, '');
+        if (d.driver_number) headshots[String(d.driver_number)] = headshots[d.name_acronym];
       }
     }
     return headshots;

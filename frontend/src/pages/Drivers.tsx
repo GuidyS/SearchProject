@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import RaceFlag from "@/components/RaceFlag";
 import SiteHeader from "@/components/SiteHeader";
 import { getDriverHeadshots } from "@/data/live-api";
+import { getDriverPortrait } from "@/data/driver-images";
 import { cachedJson } from "@/data/f1-cache";
 
 const nationalityToFlagImg: Record<string, string> = {
@@ -133,6 +134,7 @@ const Drivers = () => {
               const teamName = s.Constructors[0]?.name || "Unknown";
               const color = teamColors[teamName] || "hsl(0, 0%, 40%)";
               const flagImg = nationalityToFlagImg[s.Driver.nationality] || "";
+              const portrait = getDriverPortrait(s.Driver, headshots, selectedYear);
               return (
                 <motion.a
                   key={s.Driver.driverId}
@@ -146,12 +148,17 @@ const Drivers = () => {
                   <div className="absolute bottom-2 left-3 text-[80px] font-black leading-none opacity-[0.12] select-none z-0" style={{ fontStyle: "italic" }}>
                     {s.Driver.permanentNumber || s.position}
                   </div>
-                  {headshots && headshots[s.Driver.familyName.substring(0,3).toUpperCase()] && (
+                  <div aria-hidden="true" className="absolute bottom-2 right-5 text-4xl font-black text-white/20 z-0">
+                    {s.Driver.givenName.charAt(0)}{s.Driver.familyName.charAt(0)}
+                  </div>
+                  {portrait && (
                     <img
-                      src={headshots[s.Driver.familyName.substring(0,3).toUpperCase()]}
-                      alt={s.Driver.familyName}
+                      src={portrait}
+                      alt={`${s.Driver.givenName} ${s.Driver.familyName}`}
                       className="absolute bottom-0 right-[-5%] h-[120%] w-auto object-contain object-bottom pointer-events-none transition-transform duration-300 group-hover:scale-105 z-10"
                       style={{ filter: "drop-shadow(-3px 0px 8px rgba(0,0,0,0.8))" }}
+                      onLoad={(event) => { event.currentTarget.hidden = false; }}
+                      onError={(event) => { event.currentTarget.hidden = true; }}
                     />
                   )}
                   <div className="relative p-5 pb-4 min-h-[140px] flex flex-col justify-between z-20">

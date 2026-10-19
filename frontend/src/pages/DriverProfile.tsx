@@ -7,6 +7,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import RaceFlag from "@/components/RaceFlag";
 import SiteHeader from "@/components/SiteHeader";
 import { getDriverHeadshots } from "@/data/live-api";
+import { getDriverPortrait } from "@/data/driver-images";
 import { cachedJson } from "@/data/f1-cache";
 
 const API_BASE = "https://api.jolpi.ca/ergast/f1";
@@ -203,6 +204,7 @@ const DriverProfile = () => {
   const teamName = standing?.Constructors?.[0]?.name || races[0]?.Results?.[0]?.Constructor?.name || "";
   const teamColor = teamColors[teamName] || "hsl(0, 0%, 40%)";
   const flagImg = driver ? nationalityToFlagImg[driver.nationality] || "" : "";
+  const portrait = driver ? getDriverPortrait(driver, headshots, selectedYear) : null;
 
   const age = driver?.dateOfBirth
     ? Math.floor((Date.now() - new Date(driver.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
@@ -246,12 +248,14 @@ const DriverProfile = () => {
               <div className="absolute top-4 right-6 text-[120px] md:text-[180px] font-black leading-none opacity-[0.08] select-none italic z-0">
                 {driver.permanentNumber || "?"}
               </div>
-              {headshots && headshots[driver.familyName.substring(0,3).toUpperCase()] && (
+              {portrait && (
                 <img
-                  src={headshots[driver.familyName.substring(0,3).toUpperCase()]}
-                  alt={driver.familyName}
+                  src={portrait}
+                  alt={`${driver.givenName} ${driver.familyName}`}
                   className="absolute bottom-0 right-0 md:right-[5%] h-[120%] w-auto object-contain object-bottom z-10 pointer-events-none fade-in"
                   style={{ filter: "drop-shadow(-8px 0px 16px rgba(0,0,0,0.8))" }}
+                  onLoad={(event) => { event.currentTarget.hidden = false; }}
+                  onError={(event) => { event.currentTarget.hidden = true; }}
                 />
               )}
               <div className="relative p-8 md:p-10 z-20 bg-gradient-to-r from-black/60 via-black/30 to-transparent">
