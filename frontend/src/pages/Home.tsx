@@ -75,8 +75,8 @@ const Home = () => {
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
   const [isMusicEnabled, setIsMusicEnabled] = useState(true);
   const [isMusicBlocked, setIsMusicBlocked] = useState(false);
-  const [volume, setVolume] = useState(50);
-  const volumeRef = useRef(50);
+  const [volume, setVolume] = useState(5);
+  const volumeRef = useRef(5);
   const musicEnabledRef = useRef(true);
   const autoStartPendingRef = useRef(true);
   const ytPlayerRef = useRef<any>(null);
