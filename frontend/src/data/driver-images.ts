@@ -4,14 +4,14 @@ interface DriverIdentity {
   permanentNumber?: string;
 }
 
-// Verified official Formula 1 portraits. OpenF1's latest session currently has
-// legacy fallback images for these drivers, and omits Tsunoda entirely.
+// Official Formula 1 portraits. Crop to the upper body to match the OpenF1
+// headshots used by the other driver cards.
 const officialPortraits2026: Record<string, string> = {
-  arvid_lindblad: "https://media.formula1.com/image/upload/c_fill,w_720/q_auto/v1740000001/common/f1/2026/racingbulls/arvlin01/2026racingbullsarvlin01right.webp",
-  hulkenberg: "https://media.formula1.com/image/upload/c_fill,w_720/q_auto/v1740000001/common/f1/2026/audi/nichul01/2026audinichul01right.webp",
-  perez: "https://media.formula1.com/image/upload/c_fill,w_720/q_auto/v1740000001/common/f1/2026/cadillac/serper01/2026cadillacserper01right.webp",
+  arvid_lindblad: "https://media.formula1.com/image/upload/c_fill,w_840,h_630,g_north/q_auto/v1740000001/common/f1/2026/racingbulls/arvlin01/2026racingbullsarvlin01right.webp",
+  hulkenberg: "https://media.formula1.com/image/upload/c_fill,w_840,h_630,g_north/q_auto/v1740000001/common/f1/2026/audi/nichul01/2026audinichul01right.webp",
+  perez: "https://media.formula1.com/image/upload/c_fill,w_840,h_630,g_north/q_auto/v1740000001/common/f1/2026/cadillac/serper01/2026cadillacserper01right.webp",
   // Tsunoda does not currently have a 2026 driver profile; use his 2025 portrait.
-  tsunoda: "https://media.formula1.com/image/upload/c_fill,w_720/q_auto/v1740000001/common/f1/2025/racingbulls/yuktsu01/2025racingbullsyuktsu01right.webp",
+  tsunoda: "https://media.formula1.com/image/upload/c_fill,w_840,h_630,g_north/q_auto/v1740000001/common/f1/2025/racingbulls/yuktsu01/2025racingbullsyuktsu01right.webp",
 };
 
 export function getDriverPortrait(
